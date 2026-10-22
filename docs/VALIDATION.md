@@ -1,5 +1,7 @@
 # 1단계 검증 기록
 
+현재 시간 판독/추적 검증은 [TIME_TRACKING.md](TIME_TRACKING.md), 초기 탐색 검증은 [AUTO_DETECTION.md](AUTO_DETECTION.md)를 참조한다. 아래는 초기 1단계 당시 기록이다.
+
 - `npm test`: 2개 파일, 8개 테스트 통과.
 - `npm run build`: TypeScript 검사 및 Vite 프로덕션 빌드 성공.
 - 의존성 설치 보안 검사: Vitest 5.0.5로 수정 후 취약점 0개.

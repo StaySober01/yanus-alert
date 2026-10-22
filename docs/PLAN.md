@@ -1,5 +1,7 @@
 # Maple Alert 구조와 구현 계획
 
+현재 진행: 1~2단계 이후 제공된 6장을 추가해 **3단계 로컬 OCR·시간 검증·갱신 추적·주기별 10초 알림을 실험 구현**했다. 솔 야누스 수동 ROI는 사용하지 않으며 미니맵 ROI만 수동 지정한다. 현재 정책/검증/한계는 [TIME_TRACKING.md](TIME_TRACKING.md), 초기 탐색 기록은 [AUTO_DETECTION.md](AUTO_DETECTION.md) 참조. 아래 단계 목록은 개발 로드맵이며 4단계 룬 감지는 아직 미구현이다.
+
 ## 원칙 및 구조
 
 React + TypeScript + Vite 로컬 SPA. 백엔드·DB·프레임 업로드 없이 브라우저 내부에서 처리한다. 게임 메모리, 패킷, 파일, 입력 장치에 접근하지 않는다. 화면 공유 오디오는 요청하지 않는다.
@@ -14,7 +16,7 @@ src/ui/        React 화면·사용자 입력·상태 표시
 docs/          계획과 샘플 수집 지침
 ```
 
-후속 분석 흐름: FrameSource → ROI → 교체 가능한 Detector → StateTracker → 알림 이벤트 → AlertAudio. React에는 감지 알고리즘을 넣지 않는다. 현재 감지기는 없으며 Canvas 크롭 미리보기만 250ms 간격으로 갱신한다. 공유 종료/입력 전환/언마운트 시 정리한다.
+후속 분석 흐름: FrameSource → 전체 화면 IconLocator → 자동 ROI → 시간 Detector → StateTracker → 알림 이벤트 → AlertAudio. React에는 감지 알고리즘을 넣지 않는다. 현재 IconLocator는 Worker에 연결되어 있으며 Canvas 크롭 미리보기는 250ms 간격으로 갱신한다. 공유 종료/입력 전환/언마운트 시 정리한다.
 
 ## 1단계 — 구현 완료
 

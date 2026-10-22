@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.tsbuildinfo
 samples/private/
+public/ocr/
+*.traineddata
