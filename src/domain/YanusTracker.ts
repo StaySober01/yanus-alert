@@ -1,8 +1,8 @@
 import type { TimerReading } from '../analysis/timerReading';
 export type TrackingPhase = 'confirming' | 'active' | 'renewing' | 'uncertain' | 'absent';
-export interface TrackingStatus { phase: TrackingPhase; seconds: number | null; cycle: number; alerted: boolean; alert: boolean }
+export interface TrackingStatus { phase: TrackingPhase; seconds: number | null; cycle: number; alerted: boolean; alert: boolean; estimated: boolean }
 interface TimedReading { seconds: number; at: number }
-/** All times are monotonic capture timestamps. Missing OCR never advances the countdown. */
+/** Confirmed readings anchor a monotonic countdown, independent of OCR completion. */
 export class YanusTracker {
   private last: TimedReading | null = null;
   private candidate: TimedReading | null = null;
@@ -12,13 +12,23 @@ export class YanusTracker {
   private alerted = false;
   private lastTimestamp = -Infinity;
   private phase: TrackingPhase = 'confirming';
+  private remaining(at: number) {
+    return this.last ? Math.max(0, this.last.seconds - Math.max(0, at - this.last.at) / 1000) : null;
+  }
+  tick(at: number): TrackingStatus {
+    const remaining = Number.isFinite(at) ? this.remaining(at) : null;
+    const seconds = remaining === null ? null : Math.ceil(remaining);
+    const alert = !this.alerted && seconds !== null && seconds > 0 && seconds <= 13;
+    if (alert) this.alerted = true;
+    return { phase: this.phase, seconds, cycle: this.cycle, alerted: this.alerted, alert, estimated: this.last !== null && at !== this.last.at };
+  }
   private consistent(previous: TimedReading, next: TimedReading) {
     const elapsed = (next.at - previous.at) / 1000;
     return elapsed >= 0.2 && elapsed <= 4 && next.seconds <= previous.seconds && Math.abs((previous.seconds - next.seconds) - elapsed) <= 1.5;
   }
   update(reading: TimerReading | null, iconPresent: boolean, at: number): TrackingStatus {
-    const status = (seconds: number | null = null, alert = false): TrackingStatus => ({ phase: this.phase, seconds, cycle: this.cycle, alerted: this.alerted, alert });
-    if (!Number.isFinite(at) || at <= this.lastTimestamp) return status();
+    const status = () => this.tick(at);
+    if (!Number.isFinite(at) || at <= this.lastTimestamp) return { phase: this.phase, seconds: null, cycle: this.cycle, alerted: this.alerted, alert: false, estimated: false };
     this.lastTimestamp = at;
     if (!iconPresent) {
       this.missingSince ??= at; this.misses++; this.candidate = null;
@@ -31,7 +41,7 @@ export class YanusTracker {
       this.candidate = null; this.phase = 'uncertain'; return status();
     }
     const next = { seconds: reading.seconds, at };
-    const renewal = this.last !== null && next.seconds > this.last.seconds + 3;
+    const renewal = this.last !== null && next.seconds > this.remaining(at)! + 3;
     const followsLast = this.last !== null && this.consistent(this.last, next);
     if (!followsLast) {
       this.phase = renewal ? 'renewing' : 'confirming';
@@ -40,8 +50,6 @@ export class YanusTracker {
       if (renewal || this.cycle === 0) { this.cycle++; this.alerted = false; }
     }
     this.candidate = null; this.last = next; this.phase = 'active';
-    const alert = !this.alerted && next.seconds > 0 && next.seconds <= 10;
-    if (alert) this.alerted = true;
-    return status(next.seconds, alert);
+    return status();
   }
 }

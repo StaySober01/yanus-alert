@@ -26,9 +26,18 @@ export class YanusSession {
   private lastHeight = 0;
   private frameTime = 0;
   private tracker = new YanusTracker();
+  private clock: ReturnType<typeof setInterval> | null = null;
+  private latest: YanusStatus = { state: 'searching', region: null };
   constructor(private source: FrameSource, private continuous: boolean, private publish: (status: YanusStatus) => void, private onAlert: () => void = () => {}, private reader: TimerReader = new LocalTimerReader()) {}
   start() {
     this.publish({ state: 'searching', region: null });
+    if (this.continuous) this.clock = setInterval(() => {
+      if (this.stopped) return;
+      const tracking = this.tracker.tick(performance.now());
+      this.latest = { ...this.latest, tracking };
+      this.publish(this.latest);
+      if (tracking.alert && !this.stopped) this.onAlert();
+    }, 250);
     try {
       this.worker = new Worker(new URL('./yanus.worker.ts', import.meta.url), { type: 'module' });
       this.worker.onmessage = async (event: MessageEvent<{ id: number; result?: LocateResult; durationMs?: number; error?: string; timer?: Pixels | null; wideLayout?: boolean }>) => {
@@ -44,7 +53,8 @@ export class YanusSession {
         // Late OCR must not produce an alert from an obsolete frame.
         if (this.continuous && performance.now() - this.frameTime > 5000) reading = null;
         const tracking = this.continuous ? this.tracker.update(reading, !!bounds || result.ambiguous, this.frameTime) : undefined;
-        this.publish({ state: result.ambiguous ? 'ambiguous' : bounds ? 'found' : 'not-found', region: bounds ? { x: bounds.x / this.lastWidth, y: bounds.y / this.lastHeight, width: bounds.width / this.lastWidth, height: bounds.height / this.lastHeight } : null, score: result.icon?.score, durationMs, reading, tracking });
+        this.latest = { state: result.ambiguous ? 'ambiguous' : bounds ? 'found' : 'not-found', region: bounds ? { x: bounds.x / this.lastWidth, y: bounds.y / this.lastHeight, width: bounds.width / this.lastWidth, height: bounds.height / this.lastHeight } : null, score: result.icon?.score, durationMs, reading, tracking };
+        this.publish(this.latest);
         if (tracking?.alert && !this.stopped) this.onAlert();
         if (this.continuous) this.timer = setTimeout(() => this.read(), 1000);
       };
@@ -66,5 +76,5 @@ export class YanusSession {
     } catch (error) { this.fail(error instanceof Error ? error.message : '화면을 읽지 못했습니다.'); }
   }
   private fail(error: string) { if (!this.stopped) this.publish({ state: 'error', region: null, error }); this.stop(); }
-  stop() { this.stopped = true; if (this.timer !== null) clearTimeout(this.timer); this.worker?.terminate(); this.worker = null; this.reader.close(); }
+  stop() { this.stopped = true; if (this.clock !== null) clearInterval(this.clock); if (this.timer !== null) clearTimeout(this.timer); this.worker?.terminate(); this.worker = null; this.reader.close(); }
 }

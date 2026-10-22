@@ -78,6 +78,7 @@ export default function App() {
   </div>;
 }
 function yanusText(status: YanusStatus): string {
+  if (status.tracking?.estimated && status.tracking.seconds !== null) return status.tracking.seconds > 0 ? '마지막 확인 시간 기준 카운트다운 · 재탐색 중' : '추정 시간 만료 · 재탐색 중';
   if (status.tracking) return ({ confirming: '연속 판독 확인 중', active: '남은 시간 추적 중', renewing: '버프 갱신 확인 중', uncertain: '판독 불확실 · 알림 보류', absent: '아이콘 미검출 지속 · 소멸 추정' })[status.tracking.phase];
   switch (status.state) {
     case 'idle': return '화면 공유 또는 테스트 이미지를 기다리는 중';

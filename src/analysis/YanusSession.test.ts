@@ -58,3 +58,18 @@ it('drops an OCR result that arrives after stop', async () => {
   const pending=FakeWorker.current.onmessage!({data:{id:1,result:{icon:{bounds:{x:0,y:0,width:29,height:32},score:0.9},ambiguous:false,candidates:1},timer:{width:1,height:1,data:new Uint8ClampedArray(4)}}});
   session.stop();resolve(null);await pending;expect(alert).not.toHaveBeenCalled();expect(publish).toHaveBeenCalledOnce();
 });
+it('keeps counting and alerts while the next worker result is pending', async () => {
+  let seconds = 16;
+  const alert = vi.fn(), publish = vi.fn();
+  const reader: TimerReader = { read: async () => ({ seconds, confidence: 90, raw: String(seconds), separatorInferred: false }), close: vi.fn() };
+  const source = { read: () => ({ image: { width: 100, height: 100, data: new Uint8ClampedArray(40000) } as ImageData, timestampMs: performance.now() }) };
+  const session = new YanusSession(source, true, publish, alert, reader); session.start();
+  const reply = (id: number) => FakeWorker.current.onmessage!({ data: { id, result: { icon: { bounds: { x: 0, y: 0, width: 29, height: 32 }, score: 0.9 }, ambiguous: false }, timer: { width: 1, height: 1, data: new Uint8ClampedArray(4) } } });
+  await reply(1); vi.advanceTimersByTime(1000); seconds = 15; await reply(2);
+  vi.advanceTimersByTime(2000);
+  expect(alert).toHaveBeenCalledOnce();
+  expect(publish.mock.lastCall![0].tracking).toMatchObject({ seconds: 13, estimated: true });
+  vi.advanceTimersByTime(3000); expect(alert).toHaveBeenCalledOnce();
+  session.stop(); const count = publish.mock.calls.length;
+  vi.advanceTimersByTime(5000); expect(publish).toHaveBeenCalledTimes(count);
+});
