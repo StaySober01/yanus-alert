@@ -1,6 +1,6 @@
 # Maple Alert 구조와 구현 계획
 
-현재 진행: 1~2단계 이후 제공된 6장을 추가해 **3단계 로컬 OCR·시간 검증·갱신 추적·주기별 10초 알림을 실험 구현**했다. 솔 야누스 수동 ROI는 사용하지 않으며 미니맵 ROI만 수동 지정한다. 현재 정책/검증/한계는 [TIME_TRACKING.md](TIME_TRACKING.md), 초기 탐색 기록은 [AUTO_DETECTION.md](AUTO_DETECTION.md) 참조. 아래 단계 목록은 개발 로드맵이며 4단계 룬 감지는 아직 미구현이다.
+현재 진행: 1~2단계 이후 제공된 6장을 추가해 **3단계 로컬 OCR·시간 검증·갱신 추적·주기별 10초 알림을 실험 구현**했다. 솔 야누스 수동 ROI는 사용하지 않으며 미니맵 ROI만 수동 지정한다. 현재 정책/검증/한계는 [TIME_TRACKING.md](TIME_TRACKING.md), 초기 탐색 기록은 [AUTO_DETECTION.md](AUTO_DETECTION.md) 참조. 아래 단계 목록은 개발 로드맵이며 4단계 룬 감지도 제공 샘플 기반으로 실험 구현했다. 정책과 검증 범위는 [RUNE_DETECTION.md](RUNE_DETECTION.md)를 참조한다.
 
 ## 원칙 및 구조
 

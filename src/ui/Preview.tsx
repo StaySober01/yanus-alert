@@ -1,10 +1,11 @@
+import { RuneSession, IDLE_RUNE, type RuneStatus } from '../analysis/RuneSession';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { clamp, regionFromPoints, type Point, type Region, type RegionKey } from '../domain/regions';
 import { CanvasFrameSource } from '../capture/CanvasFrameSource';
 import { IDLE_YANUS, YanusSession, type YanusStatus } from '../analysis/YanusSession';
 const names = { yanus: '솔 야누스', rune: '미니맵' };
-interface Props { stream: MediaStream | null; imageUrl: string | null; regions: Record<RegionKey, Region | null>; active: RegionKey; onSelect: (region: Region) => void; onError: (message: string) => void; yanusEnabled: boolean; onDetection: (status: YanusStatus) => void; onAlert: () => void }
-export function Preview({ stream, imageUrl, regions, active, onSelect, onError, yanusEnabled, onDetection, onAlert }: Props) {
+interface Props { stream: MediaStream | null; imageUrl: string | null; regions: Record<RegionKey, Region | null>; active: RegionKey; onSelect: (region: Region) => void; onError: (message: string) => void; yanusEnabled: boolean; onDetection: (status: YanusStatus) => void; onAlert: () => void; runeEnabled: boolean; onRuneDetection: (status: RuneStatus) => void; onRuneAlert: () => void }
+export function Preview({ stream, imageUrl, regions, active, onSelect, onError, yanusEnabled, onDetection, onAlert, runeEnabled, onRuneDetection, onRuneAlert }: Props) {
   const video = useRef<HTMLVideoElement>(null);
   const image = useRef<HTMLImageElement>(null);
   const crop = useRef<HTMLCanvasElement>(null);
@@ -12,6 +13,13 @@ export function Preview({ stream, imageUrl, regions, active, onSelect, onError, 
   const [draft, setDraft] = useState<Region | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const ready = size.width > 0;
+  useEffect(() => {
+    const source = stream ? video.current : imageUrl ? image.current : null;
+    if (!runeEnabled || !regions.rune || !source || !ready) { onRuneDetection(IDLE_RUNE); return; }
+    const session = new RuneSession(new CanvasFrameSource(source), regions.rune, !!stream, onRuneDetection, onRuneAlert);
+    session.start();
+    return () => session.stop();
+  }, [stream, imageUrl, ready, runeEnabled, regions.rune, onRuneDetection, onRuneAlert]);
   useEffect(() => {
     setSize({ width: 0, height: 0 }); setDraft(null); start.current = null;
     const v = video.current;
