@@ -4,6 +4,16 @@ import { expect, it } from 'vitest';
 import { PurpleDiamondDetector } from './runeDetector';
 import { RuneTracker } from '../domain/RuneTracker';
 const detector = new PurpleDiamondDetector();
+it('detects the actual background captures and foreground capture, but not the pre-spawn capture', () => {
+  for (const name of ['38-290Z-background-missing', '43-388Z-background-missing', '48-490Z-background-missing', '51-039Z-foreground-found']) {
+    const image = PNG.sync.read(readFileSync(`samples/fixtures/rune-2026-10-23T06-32-${name}.png`));
+    expect(detector.detect(image), name).toMatchObject({ x: 83, y: 46, width: 7, height: 7 });
+    // Keep players, portals, and background; remove only the labeled rune.
+    for (let y = 44; y < 56; y++) for (let x = 81; x < 94; x++) image.data.fill(0, (y * image.width + x) * 4, (y * image.width + x) * 4 + 4);
+    expect(detector.detect(image), `${name} without rune`).toBeNull();
+  }
+  expect(detector.detect(PNG.sync.read(readFileSync('samples/fixtures/rune-2026-10-23T06-32-33-206Z-background-missing.png')))).toBeNull();
+});
 it('finds the supplied rune among player markers', () => {
   const image = PNG.sync.read(readFileSync('samples/fixtures/rune-present.png'));
   expect(detector.detect(image)).toMatchObject({ x: 93, y: 41, width: 7, height: 7 });

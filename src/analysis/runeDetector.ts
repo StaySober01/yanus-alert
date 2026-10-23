@@ -9,7 +9,8 @@ export class PurpleDiamondDetector implements RuneDetector {
     const mask = new Uint8Array(width * height);
     for (let i = 0; i < mask.length; i++) {
       const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
-      mask[i] = +(r > 90 && b > 90 && r - g > 25 && b - g > 15);
+      // Rune purple has more blue than red; pink/red player dots do not.
+      mask[i] = +(r > 90 && b > 90 && r - g > 25 && b - g > 15 && b - r > 8);
     }
     const visited = new Uint8Array(mask.length);
     let best: RuneMatch | null = null;
@@ -27,7 +28,7 @@ export class PurpleDiamondDetector implements RuneDetector {
         }
       }
       const w = right - left + 1, h = bottom - top + 1;
-      if (w < 5 || h < 5 || w > 32 || h > 32 || w / h < 0.75 || w / h > 1.33) continue;
+      if (w < 5 || h < 5 || w > 32 || h > 32 || w / h < 0.6 || w / h > 1.67) continue;
       let intersection = 0, union = 0;
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
         const diamond = Math.abs((x - (w - 1) / 2) / (w / 2)) + Math.abs((y - (h - 1) / 2) / (h / 2)) <= 1;
@@ -37,6 +38,25 @@ export class PurpleDiamondDetector implements RuneDetector {
       }
       const score = intersection / union;
       if (score >= 0.86 && (!best || score > best.score)) best = { x: left, y: top, width: w, height: h, score };
+      // Captured frames can lose a tip or gain adjacent purple pixels. Fit a
+      // square diamond locally instead of stretching its mask to the damaged box.
+      // Penalize ALL component pixels outside the template, so a small diamond
+      // inside a circle/square does not become an automatic match.
+      for (let size = Math.max(7, Math.max(w, h) - 2); size <= Math.min(32, Math.max(w, h) + 2); size++) {
+        const radius = size / 2, center = (size - 1) / 2;
+        let expected = 0;
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (Math.abs(x - center) + Math.abs(y - center) <= radius) expected++;
+        for (let y0 = top - 2; y0 <= top + 1; y0++) for (let x0 = left - 2; x0 <= left + 1; x0++) {
+          if (x0 < 0 || y0 < 0 || x0 + size > width || y0 + size > height) continue;
+          let overlap = 0;
+          for (const p of queue) {
+            const x = p % width - x0, y = Math.floor(p / width) - y0;
+            if (x >= 0 && y >= 0 && x < size && y < size && Math.abs(x - center) + Math.abs(y - center) <= radius) overlap++;
+          }
+          const fittedScore = overlap / (queue.length + expected - overlap);
+          if (fittedScore >= 0.8 && (!best || fittedScore > best.score)) best = { x: x0, y: y0, width: size, height: size, score: fittedScore };
+        }
+      }
     }
     return best;
   }
