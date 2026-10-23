@@ -34,3 +34,20 @@ it('does not treat observations across a suspended tab as consecutive', () => {
   tracker.update(true, 0); tracker.update(true, 500);
   expect(tracker.update(true, 10000).alert).toBe(false);
 });
+it('rearms after repeated absence even when analysis intervals exceed two seconds', () => {
+  const tracker = new RuneTracker();
+  tracker.update(true, 0); tracker.update(true, 500);
+  expect(tracker.update(true, 1000).alert).toBe(true);
+  for (const t of [4000, 7000, 10000, 13000]) expect(tracker.update(false, t).present).toBe(true);
+  expect(tracker.update(false, 16000).present).toBe(false);
+  tracker.update(true, 19000); tracker.update(true, 19500);
+  expect(tracker.update(true, 20000).alert).toBe(true);
+});
+it('does not clear presence from one delayed absence or accumulated intermittent misses', () => {
+  const tracker = new RuneTracker();
+  tracker.update(true, 0); tracker.update(true, 500); tracker.update(true, 1000);
+  expect(tracker.update(false, 61000).present).toBe(true);
+  tracker.update(false, 64000); tracker.update(false, 67000); tracker.update(false, 70000);
+  tracker.update(true, 73000);
+  expect(tracker.update(false, 76000).present).toBe(true);
+});

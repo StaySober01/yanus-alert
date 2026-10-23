@@ -5,7 +5,10 @@ export class RuneTracker {
   private previous: boolean | null = null;
   private lastTime = -Infinity;
   update(found: boolean, now: number) {
-    if (found !== this.previous || now - this.lastTime > 2000) { this.count = 0; this.since = now; }
+    // Slow sampling must not keep the first rune latched forever. Absence
+    // still needs five actual observations; elapsed time alone never clears it.
+    // Appearance keeps the tighter gap check to avoid stale positive alerts.
+    if (found !== this.previous || (found && now - this.lastTime > 2000)) { this.count = 0; this.since = now; }
     this.previous = found; this.lastTime = now; this.count++;
     let alert = false;
     if (found && !this.present && this.count >= 3 && now - this.since >= 800) { this.present = true; alert = true; }
