@@ -29,10 +29,21 @@ it('alerts once, tolerates occlusion, and rearms only after sustained absence', 
   tracker.update(true, 6000); tracker.update(true, 6500);
   expect(tracker.update(true, 7000).alert).toBe(true);
 });
-it('does not treat observations across a suspended tab as consecutive', () => {
+it('confirms three actual positive observations even when background scheduling delays them', () => {
   const tracker = new RuneTracker();
-  tracker.update(true, 0); tracker.update(true, 500);
-  expect(tracker.update(true, 10000).alert).toBe(false);
+  expect(tracker.update(true, 0).alert).toBe(false);
+  expect(tracker.update(true, 60000).alert).toBe(false);
+  expect(tracker.update(true, 120000).alert).toBe(true);
+  expect(tracker.update(true, 180000).alert).toBe(false);
+});
+it('resets positive confirmation on a negative observation and ignores duplicate timestamps', () => {
+  const tracker = new RuneTracker();
+  tracker.update(true, 0); tracker.update(true, 3000);
+  tracker.update(false, 6000);
+  expect(tracker.update(true, 9000).alert).toBe(false);
+  expect(tracker.update(true, 9000).alert).toBe(false);
+  expect(tracker.update(true, 12000).alert).toBe(false);
+  expect(tracker.update(true, 15000).alert).toBe(true);
 });
 it('rearms after repeated absence even when analysis intervals exceed two seconds', () => {
   const tracker = new RuneTracker();
