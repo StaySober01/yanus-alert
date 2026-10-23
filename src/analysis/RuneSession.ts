@@ -9,7 +9,7 @@ export class RuneSession {
   private stopped = false;
   private tracker = new RuneTracker();
   private lastCheckAt: number | null = null;
-  constructor(private source: FrameSource, private region: Region, private live: boolean, private publish: (s: RuneStatus) => void, private alert: () => void, private detector: RuneDetector = new PurpleDiamondDetector()) {}
+  constructor(private source: FrameSource, private region: Region, private live: boolean, private publish: (s: RuneStatus) => void, private alert: () => void, private detector: RuneDetector = new PurpleDiamondDetector(), private snapshot?: (image: ImageData, found: boolean, hidden: boolean, at: number, time: string) => void) {}
   start() { this.read(); }
   stop() { this.stopped = true; clearTimeout(this.timer); }
   private read = () => {
@@ -38,6 +38,8 @@ export class RuneSession {
         diagnostic.알림요청 = result.alert && !this.stopped;
         this.publish({ state: result.confirming ? 'confirming' : result.present ? 'present' : 'absent' });
         if (result.alert && !this.stopped) this.alert();
+        // Use exactly the pixels supplied to the detector, not a second video read.
+        if (!this.stopped) this.snapshot?.(frame.image, found, diagnostic.백그라운드 === true, now, diagnostic.시간);
       }
       if (this.live && !this.stopped) this.timer = setTimeout(this.read, 500);
     } catch (error) {

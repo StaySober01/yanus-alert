@@ -1,5 +1,7 @@
 import { RuneSession, IDLE_RUNE, type RuneStatus } from '../analysis/RuneSession';
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
+import { RuneSnapshots, type RuneSnapshot } from '../analysis/RuneSnapshots';
+import { RuneSnapshotPanel } from './RuneSnapshotPanel';
 import { clamp, regionFromPoints, type Point, type Region, type RegionKey } from '../domain/regions';
 import { CanvasFrameSource } from '../capture/CanvasFrameSource';
 import { IDLE_YANUS, YanusSession, type YanusStatus } from '../analysis/YanusSession';
@@ -13,13 +15,18 @@ export function Preview({ stream, imageUrl, regions, active, onSelect, onError, 
   const [draft, setDraft] = useState<Region | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const ready = size.width > 0;
+  const snapshots = useRef(new RuneSnapshots());
+  const [snapshotItems, setSnapshotItems] = useState<RuneSnapshot[]>([]);
+  const recordSnapshot = useCallback((pixels: ImageData, found: boolean, hidden: boolean, at: number, time: string) => {
+    if (snapshots.current.add(pixels, found, hidden, at, time)) setSnapshotItems(snapshots.current.items);
+  }, []);
   useEffect(() => {
     const source = stream ? video.current : imageUrl ? image.current : null;
     if (!runeEnabled || !regions.rune || !source || !ready) { onRuneDetection(IDLE_RUNE); return; }
-    const session = new RuneSession(new CanvasFrameSource(source), regions.rune, !!stream, onRuneDetection, onRuneAlert);
+    const session = new RuneSession(new CanvasFrameSource(source), regions.rune, !!stream, onRuneDetection, onRuneAlert, undefined, recordSnapshot);
     session.start();
     return () => session.stop();
-  }, [stream, imageUrl, ready, runeEnabled, regions.rune, onRuneDetection, onRuneAlert]);
+  }, [stream, imageUrl, ready, runeEnabled, regions.rune, onRuneDetection, onRuneAlert, recordSnapshot]);
   useEffect(() => {
     setSize({ width: 0, height: 0 }); setDraft(null); start.current = null;
     const v = video.current;
@@ -60,6 +67,7 @@ export function Preview({ stream, imageUrl, regions, active, onSelect, onError, 
   }
   const box = (r: Region) => ({ left: `${r.x * 100}%`, top: `${r.y * 100}%`, width: `${r.width * 100}%`, height: `${r.height * 100}%` });
   return <>
+    <RuneSnapshotPanel items={snapshotItems} clear={() => { snapshots.current.clear(); setSnapshotItems([]); }} />
     <div className="preview-heading"><span>공유 화면 미리보기</span><span>{size.width ? `${size.width} × ${size.height}` : '입력 대기'}</span></div>
     <div className="preview-well">
       {!stream && !imageUrl ? <div className="empty"><span className="screen-icon">▣</span><h2>게임 화면을 연결해 주세요</h2><p>화면 공유를 시작한 뒤 게임 창이나 모니터를 선택하세요.</p><small>이미지는 브라우저 내부에서만 처리됩니다.</small></div> :
