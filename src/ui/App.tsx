@@ -1,3 +1,4 @@
+import { ALERT_SOUNDS } from '../audio/sounds';
 import { IDLE_RUNE, type RuneStatus } from '../analysis/RuneSession';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScreenCapture } from '../capture/ScreenCapture';
@@ -21,10 +22,11 @@ export default function App() {
   const capture = useRef(new ScreenCapture());
   const audio = useRef(new AlertAudio());
   const volume = useRef(settings.volume); volume.current = settings.volume;
+  const soundSelection = useRef(settings.sounds); soundSelection.current = settings.sounds;
   const alive = useRef(true);
   const report = useCallback((text: string) => setMessage(text), []);
-  const runeAlert = useCallback(() => { void audio.current.play(volume.current, 'rune').catch(error => setMessage(error instanceof Error ? error.message : '룬 알림음 재생 실패')); }, []);
-  const alert = useCallback(() => { void audio.current.play(volume.current, 'yanus').catch(error => setMessage(error instanceof Error ? error.message : '알림음 재생에 실패했습니다.')); }, []);
+  const runeAlert = useCallback(() => { void audio.current.play(volume.current, 'rune', soundSelection.current.rune).catch(error => setMessage(error instanceof Error ? error.message : '룬 알림음 재생 실패')); }, []);
+  const alert = useCallback(() => { void audio.current.play(volume.current, 'yanus', soundSelection.current.yanus).catch(error => setMessage(error instanceof Error ? error.message : '알림음 재생에 실패했습니다.')); }, []);
   useEffect(() => { if (!settings.enabled.rune) audio.current.stop(); }, [settings.enabled.rune]);
   useEffect(() => { if (!settings.enabled.yanus) audio.current.stop(); }, [settings.enabled.yanus]);
   useEffect(() => { setSaved(saveSettings(settings)); }, [settings]);
@@ -72,7 +74,7 @@ export default function App() {
           <label className="volume">야누스 알림 시점 <span>남은 {settings.yanusAlertSeconds}초</span><input aria-label="야누스 알림 시점 (초)" type="range" min="1" max="120" step="1" value={settings.yanusAlertSeconds} onChange={e => setSettings(s => ({ ...s, yanusAlertSeconds: Number(e.target.value) }))} /></label>
           <small className="muted">1~120초 · 변경 즉시 적용됩니다. 이미 알린 주기에는 다시 울리지 않습니다.</small>
           <label className="volume">알림 음량 <span>{Math.round(settings.volume * 100)}%</span><input type="range" min="0" max="1" step="0.05" value={settings.volume} onChange={e => setSettings(s => ({ ...s, volume: Number(e.target.value) }))} /></label>
-          {(['yanus', 'rune'] as const).map(kind => <button key={kind} className="sound" onClick={() => { audio.current.stop(); void audio.current.test(settings.volume, kind).catch(error => setMessage(error instanceof Error ? error.message : '오디오를 재생하지 못했습니다. 브라우저 음소거 설정을 확인해 주세요.')); }}>♫ {kind === 'yanus' ? '야누스' : '룬'} 알림음 테스트</button>)}<small className="muted">룬은 3회 연속 검출 시 알리며, 2초 이상 미검출 후 다시 알릴 수 있습니다. 정지 이미지에서는 소리가 나지 않습니다. 감지를 끄면 해당 분석과 재생 중인 소리를 중단합니다.</small>
+          {(['yanus', 'rune'] as const).map(kind => <div key={kind} className="sound-choice"><label>{kind === 'yanus' ? '야누스 알림음' : '룬 알림음'}<select aria-label={kind === 'yanus' ? '야누스 알림음 선택' : '룬 알림음 선택'} value={settings.sounds[kind]} onChange={e => { const id = e.target.value; audio.current.stop(); setSettings(s => ({ ...s, sounds: { ...s.sounds, [kind]: id } })); }}>{ALERT_SOUNDS.filter(sound => sound.kind === kind).map(sound => <option key={sound.id} value={sound.id}>{sound.label}</option>)}</select></label><button className="sound" onClick={() => { audio.current.stop(); void audio.current.test(settings.volume, kind, settings.sounds[kind]).catch(error => setMessage(error instanceof Error ? error.message : '오디오를 재생하지 못했습니다. 브라우저 음소거 설정을 확인해 주세요.')); }}>♫ {kind === 'yanus' ? '야누스' : '룬'} 알림음 테스트</button></div>)}<small className="muted">룬은 3회 연속 검출 시 알리며, 2초 이상 미검출 후 다시 알릴 수 있습니다. 정지 이미지에서는 소리가 나지 않습니다. 감지를 끄면 해당 분석과 재생 중인 소리를 중단합니다.</small>
         </section>
       </aside></div>
       <footer><span>MAPLE ALERT <b> / </b> 로컬 전용 · v0.1.0</span><span>화면 전송 없음 · 게임 입력 제어 없음</span></footer>

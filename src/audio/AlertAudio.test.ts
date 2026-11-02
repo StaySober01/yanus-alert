@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AlertAudio, ALERT_FILES } from './AlertAudio';
+import { ALERT_SOUNDS, type AlertSound } from './sounds';
 class FakeContext {
   state='running'; destination={};
   resume=vi.fn(async()=>{}); close=vi.fn(async()=>{});
@@ -14,6 +15,19 @@ beforeEach(()=>{
  vi.stubGlobal('fetch',vi.fn(async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(8)})));
 });
 afterEach(()=>vi.unstubAllGlobals());
+it('plays a registered alternative for preview and alerts with separate caching', async () => {
+ const sounds = ALERT_SOUNDS as AlertSound[];
+ sounds.push({ id: 'yanus-test-alternative', kind: 'yanus', label: 'Alternative', file: 'audio/alternative.mp3' });
+ const audio = new AlertAudio();
+ try {
+  await audio.test(.5, 'yanus', 'yanus-test-alternative');
+  await audio.play(.5, 'yanus');
+  await audio.play(.5, 'yanus', 'yanus-test-alternative');
+  expect(fetch).toHaveBeenNthCalledWith(1, `${import.meta.env.BASE_URL}audio/alternative.mp3`);
+  expect(fetch).toHaveBeenNthCalledWith(2, ALERT_FILES.yanus);
+  expect(fetch).toHaveBeenCalledTimes(2);
+ } finally { audio.close(); sounds.pop(); }
+});
 it('keeps zero volume silent and stops the MP3 on stop',async()=>{
  const audio=new AlertAudio();await audio.prepare();await audio.play(0);expect(context.created).toHaveLength(0);expect(fetch).not.toHaveBeenCalled();
  await audio.play(.5);expect(context.created).toHaveLength(1);expect(context.created[0].start).toHaveBeenCalledOnce();audio.stop();expect(context.created[0].stop).toHaveBeenCalledOnce();audio.close();
