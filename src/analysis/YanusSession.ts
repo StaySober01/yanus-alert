@@ -26,6 +26,7 @@ export class YanusSession {
   private lastHeight = 0;
   private frameTime = 0;
   private tracker = new YanusTracker();
+  setAlertSeconds(seconds: number) { this.tracker.setAlertSeconds(seconds); }
   private clock: ReturnType<typeof setInterval> | null = null;
   private latest: YanusStatus = { state: 'searching', region: null };
   constructor(private source: FrameSource, private continuous: boolean, private publish: (status: YanusStatus) => void, private onAlert: () => void = () => {}, private reader: TimerReader = new LocalTimerReader()) {}

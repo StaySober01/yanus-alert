@@ -1,6 +1,21 @@
 import { expect, it } from 'vitest';
 import { YanusTracker } from './YanusTracker';
 const value = (seconds: number, confidence = 90) => ({ seconds,confidence,raw:String(seconds),separatorInferred:false });
+it('uses custom timing for estimates and preserves the cycle latch when settings change', () => {
+ const t = new YanusTracker(); t.setAlertSeconds(5);
+ t.update(value(16), true, 0); t.update(value(15), true, 1000);
+ expect(t.tick(11000)).toMatchObject({seconds:5,alert:true});
+ t.setAlertSeconds(30);
+ expect(t.tick(11500).alert).toBe(false);
+ t.update(value(79), true, 12000); t.update(value(78), true, 13000);
+ expect(t.tick(61000)).toMatchObject({seconds:30,cycle:2,alert:true});
+});
+it('applies a higher threshold to an active unalerted countdown', () => {
+ const t = new YanusTracker(); t.setAlertSeconds(5);
+ t.update(value(20),true,0); t.update(value(19),true,1000);
+ t.setAlertSeconds(20);
+ expect(t.tick(1250).alert).toBe(true);
+});
 it('compensates latency by alerting at 13 seconds, but not at 14', () => {
  const t = new YanusTracker();
  t.update(value(15), true, 0);

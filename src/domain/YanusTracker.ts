@@ -1,9 +1,12 @@
 import type { TimerReading } from '../analysis/timerReading';
+import { DEFAULT_YANUS_ALERT_SECONDS, validAlertSeconds } from './alertTiming';
 export type TrackingPhase = 'confirming' | 'active' | 'renewing' | 'uncertain' | 'absent';
 export interface TrackingStatus { phase: TrackingPhase; seconds: number | null; cycle: number; alerted: boolean; alert: boolean; estimated: boolean }
 interface TimedReading { seconds: number; at: number }
 /** Confirmed readings anchor a monotonic countdown, independent of OCR completion. */
 export class YanusTracker {
+  private alertSeconds = DEFAULT_YANUS_ALERT_SECONDS;
+  setAlertSeconds(seconds: number) { if (validAlertSeconds(seconds)) this.alertSeconds = seconds; }
   private last: TimedReading | null = null;
   private candidate: TimedReading | null = null;
   private missingSince: number | null = null;
@@ -18,7 +21,7 @@ export class YanusTracker {
   tick(at: number): TrackingStatus {
     const remaining = Number.isFinite(at) ? this.remaining(at) : null;
     const seconds = remaining === null ? null : Math.ceil(remaining);
-    const alert = !this.alerted && seconds !== null && seconds > 0 && seconds <= 13;
+    const alert = !this.alerted && seconds !== null && seconds > 0 && seconds <= this.alertSeconds;
     if (alert) this.alerted = true;
     return { phase: this.phase, seconds, cycle: this.cycle, alerted: this.alerted, alert, estimated: this.last !== null && at !== this.last.at };
   }

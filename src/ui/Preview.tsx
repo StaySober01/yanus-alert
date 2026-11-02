@@ -4,8 +4,8 @@ import { clamp, regionFromPoints, type Point, type Region, type RegionKey } from
 import { CanvasFrameSource } from '../capture/CanvasFrameSource';
 import { IDLE_YANUS, YanusSession, type YanusStatus } from '../analysis/YanusSession';
 const names = { yanus: '솔 야누스', rune: '미니맵' };
-interface Props { stream: MediaStream | null; imageUrl: string | null; regions: Record<RegionKey, Region | null>; active: RegionKey; onSelect: (region: Region) => void; onError: (message: string) => void; yanusEnabled: boolean; onDetection: (status: YanusStatus) => void; onAlert: () => void; runeEnabled: boolean; onRuneDetection: (status: RuneStatus) => void; onRuneAlert: () => void }
-export function Preview({ stream, imageUrl, regions, active, onSelect, onError, yanusEnabled, onDetection, onAlert, runeEnabled, onRuneDetection, onRuneAlert }: Props) {
+interface Props { stream: MediaStream | null; imageUrl: string | null; regions: Record<RegionKey, Region | null>; active: RegionKey; onSelect: (region: Region) => void; onError: (message: string) => void; yanusEnabled: boolean; yanusAlertSeconds: number; onDetection: (status: YanusStatus) => void; onAlert: () => void; runeEnabled: boolean; onRuneDetection: (status: RuneStatus) => void; onRuneAlert: () => void }
+export function Preview({ stream, imageUrl, regions, active, onSelect, onError, yanusEnabled, yanusAlertSeconds, onDetection, onAlert, runeEnabled, onRuneDetection, onRuneAlert }: Props) {
   const video = useRef<HTMLVideoElement>(null);
   const image = useRef<HTMLImageElement>(null);
   const crop = useRef<HTMLCanvasElement>(null);
@@ -13,6 +13,10 @@ export function Preview({ stream, imageUrl, regions, active, onSelect, onError, 
   const [draft, setDraft] = useState<Region | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const ready = size.width > 0;
+  const yanusSession = useRef<YanusSession | null>(null);
+  const alertSeconds = useRef(yanusAlertSeconds);
+  alertSeconds.current = yanusAlertSeconds;
+  useEffect(() => { yanusSession.current?.setAlertSeconds(yanusAlertSeconds); }, [yanusAlertSeconds]);
   useEffect(() => {
     const source = stream ? video.current : imageUrl ? image.current : null;
     if (!runeEnabled || !regions.rune || !source || !ready) { onRuneDetection(IDLE_RUNE); return; }
@@ -33,8 +37,9 @@ export function Preview({ stream, imageUrl, regions, active, onSelect, onError, 
     const source = stream ? video.current : imageUrl ? image.current : null;
     if (!yanusEnabled || !source || !ready) { onDetection(IDLE_YANUS); return; }
     const session = new YanusSession(new CanvasFrameSource(source), !!stream, onDetection, onAlert);
+    yanusSession.current = session; session.setAlertSeconds(alertSeconds.current);
     session.start();
-    return () => session.stop();
+    return () => { session.stop(); yanusSession.current = null; };
   // A live resize must not reset the once-per-cycle alert latch.
   }, [stream, imageUrl, ready, yanusEnabled, onDetection, onAlert]);
   useEffect(() => {

@@ -46,7 +46,7 @@ export default function App() {
     <header><a className="brand" href="./"><span className="logo">M</span><span>Maple Alert<small>LOCAL HUNTING COMPANION</small></span></a><span className="privacy"><i /> 브라우저 내부 처리</span></header>
     <main>
       <div className="intro"><div><span className="eyebrow">WORKSPACE / 03</span><h1>사냥에 집중하는 시간</h1><p>화면을 연결하면 솔 야누스 아이콘과 남은 시간을 읽습니다.</p></div><span className="phase">3단계 · 시간 판독 및 알림 실험</span></div>
-      <div className="notice">솔 야누스는 자동 탐색하고 시간 흐름을 검증합니다. <strong>공유 영상에서 확인된 시간이 10초 이하이면 주기당 한 번 알립니다. 정지 이미지 테스트는 소리를 내지 않습니다. 미니맵을 지정하면 보라색 마름모 룬을 연속 확인하여 한 번 알립니다.</strong></div>
+      <div className="notice">솔 야누스는 자동 탐색하고 시간 흐름을 검증합니다. <strong>공유 영상에서 확인하거나 추정한 시간이 {settings.yanusAlertSeconds}초 이하이면 주기당 한 번 알립니다. 정지 이미지 테스트는 소리를 내지 않습니다. 미니맵을 지정하면 보라색 마름모 룬을 연속 확인하여 한 번 알립니다.</strong></div>
       {message && <div className="message" role="status">{message}<button onClick={() => setMessage('')} aria-label="메시지 닫기">×</button></div>}
       <div className="layout"><section className="panel main-panel">
         <div className="panel-title"><div><h2>01 <span>화면 연결</span></h2><p>{stream ? '공유 중 · 솔 야누스를 자동 탐색합니다.' : imageUrl ? '로컬 이미지 테스트 · 전체 이미지에서 아이콘을 찾습니다.' : '게임 창 또는 모니터를 직접 선택합니다.'}</p></div><span className={`status ${stream ? 'live' : ''}`}>{stream ? '● 공유 중' : imageUrl ? '이미지 모드' : '대기 중'}</span></div>
@@ -55,7 +55,7 @@ export default function App() {
           if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 20 * 1024 * 1024) { setMessage('20MB 이하의 PNG, JPEG, WebP 이미지를 선택해 주세요.'); return; }
           stop(); setMessage(''); setImageUrl(URL.createObjectURL(file));
         }} /></label>{imageUrl && <button onClick={() => setImageUrl(null)}>이미지 닫기</button>}</div>
-        <Preview stream={stream} imageUrl={imageUrl} regions={displayRegions} active={active} onSelect={select} onError={report} yanusEnabled={settings.enabled.yanus} onDetection={setYanus} onAlert={alert} runeEnabled={settings.enabled.rune} onRuneDetection={setRune} onRuneAlert={runeAlert} />
+        <Preview stream={stream} imageUrl={imageUrl} regions={displayRegions} active={active} onSelect={select} onError={report} yanusEnabled={settings.enabled.yanus} yanusAlertSeconds={settings.yanusAlertSeconds} onDetection={setYanus} onAlert={alert} runeEnabled={settings.enabled.rune} onRuneDetection={setRune} onRuneAlert={runeAlert} />
         <div className="tip">솔 야누스는 전체 화면에서 탐색합니다. 미니맵은 직접 지정하며, 게임 UI 배치가 바뀌면 다시 지정해 주세요.</div>
       </section><aside>
         <section className="panel"><div className="panel-title"><h2>02 <span>관심 영역</span></h2><span className={saved ? 'save' : 'unsaved'}>{saved ? '자동 저장됨' : '저장 실패'}</span></div>
@@ -69,6 +69,8 @@ export default function App() {
           <button className="subtle" disabled={!settings.regions.rune} onClick={() => setSettings(s => ({ ...s, regions: { ...s.regions, rune: null } }))}>이 영역 초기화</button></>}
         </section>
         <section className="panel"><h2>03 <span>감지 및 알림</span></h2>{(['yanus', 'rune'] as const).map(key => <div className="detector" key={key}><div><strong>{labels[key]}</strong><p>{settings.enabled[key] ? key === 'yanus' ? `남은 시간 ${yanus.tracking ? yanus.tracking.seconds ?? '—' : yanus.reading?.seconds ?? '—'}초${imageUrl ? ' · 이미지 판독' : ''}` : (rune.error ?? ({ idle: '미니맵 지정 및 화면 입력 대기', absent: '룬 미검출', confirming: '룬 상태 연속 확인 중', present: '룬 발견', error: '분석 오류' })[rune.state]) : '사용 안 함'}</p>{key === 'yanus' && yanus.tracking && <small className="muted">주기 {yanus.tracking.cycle} · {yanus.tracking.alerted ? '이번 주기 알림 처리됨' : '알림 대기'}</small>}</div><input type="checkbox" role="switch" aria-label={`${labels[key]} 감지 사용 설정`} checked={settings.enabled[key]} onChange={e => setSettings(s => ({ ...s, enabled: { ...s.enabled, [key]: e.target.checked } }))} /></div>)}
+          <label className="volume">야누스 알림 시점 <span>남은 {settings.yanusAlertSeconds}초</span><input aria-label="야누스 알림 시점 (초)" type="range" min="1" max="120" step="1" value={settings.yanusAlertSeconds} onChange={e => setSettings(s => ({ ...s, yanusAlertSeconds: Number(e.target.value) }))} /></label>
+          <small className="muted">1~120초 · 변경 즉시 적용됩니다. 이미 알린 주기에는 다시 울리지 않습니다.</small>
           <label className="volume">알림 음량 <span>{Math.round(settings.volume * 100)}%</span><input type="range" min="0" max="1" step="0.05" value={settings.volume} onChange={e => setSettings(s => ({ ...s, volume: Number(e.target.value) }))} /></label>
           {(['yanus', 'rune'] as const).map(kind => <button key={kind} className="sound" onClick={() => { audio.current.stop(); void audio.current.test(settings.volume, kind).catch(error => setMessage(error instanceof Error ? error.message : '오디오를 재생하지 못했습니다. 브라우저 음소거 설정을 확인해 주세요.')); }}>♫ {kind === 'yanus' ? '야누스' : '룬'} 알림음 테스트</button>)}<small className="muted">룬은 3회 연속 검출 시 알리며, 2초 이상 미검출 후 다시 알릴 수 있습니다. 정지 이미지에서는 소리가 나지 않습니다. 감지를 끄면 해당 분석과 재생 중인 소리를 중단합니다.</small>
         </section>
