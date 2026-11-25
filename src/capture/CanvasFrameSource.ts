@@ -14,6 +14,6 @@ export class CanvasFrameSource implements FrameSource {
     const ctx = this.canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
     ctx.drawImage(s, r.x, r.y, r.width, r.height, 0, 0, r.width, r.height);
-    return { image: ctx.getImageData(0, 0, r.width, r.height), timestampMs: performance.now() };
+    return { image: ctx.getImageData(0, 0, r.width, r.height), timestampMs: performance.now(), sourceRegion: { x: r.x / width, y: r.y / height, width: r.width / width, height: r.height / height } };
   }
 }

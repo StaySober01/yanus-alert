@@ -1,5 +1,5 @@
 import type { Region } from '../domain/regions';
-export interface Frame { image: ImageData; timestampMs: number }
+export interface Frame { image: ImageData; timestampMs: number; sourceRegion?: Region }
 export interface Observation<T> { value: T | null; confidence: number }
 /** Implementations must honor cancellation and never send pixels over the network. */
 export interface ImageDetector<T> { detect(frame: Frame, signal: AbortSignal): Promise<Observation<T>> }

@@ -15,6 +15,7 @@ export interface YanusStatus {
   tracking?: TrackingStatus;
 }
 export const IDLE_YANUS: YanusStatus = { state: 'idle', region: null };
+export const YANUS_SEARCH_REGION: Region = { x: 0.5, y: 0, width: 0.5, height: 0.5 };
 
 /** One request at a time. Worker termination cancels even synchronous matching. */
 export class YanusSession {
@@ -24,6 +25,7 @@ export class YanusSession {
   private requestId = 0;
   private lastWidth = 0;
   private lastHeight = 0;
+  private sourceRegion = YANUS_SEARCH_REGION;
   private frameTime = 0;
   private tracker = new YanusTracker();
   setAlertSeconds(seconds: number) { this.tracker.setAlertSeconds(seconds); }
@@ -54,7 +56,8 @@ export class YanusSession {
         // Late OCR must not produce an alert from an obsolete frame.
         if (this.continuous && performance.now() - this.frameTime > 5000) reading = null;
         const tracking = this.continuous ? this.tracker.update(reading, !!bounds || result.ambiguous, this.frameTime) : undefined;
-        this.latest = { state: result.ambiguous ? 'ambiguous' : bounds ? 'found' : 'not-found', region: bounds ? { x: bounds.x / this.lastWidth, y: bounds.y / this.lastHeight, width: bounds.width / this.lastWidth, height: bounds.height / this.lastHeight } : null, score: result.icon?.score, durationMs, reading, tracking };
+        const crop = this.sourceRegion;
+        this.latest = { state: result.ambiguous ? 'ambiguous' : bounds ? 'found' : 'not-found', region: bounds ? { x: crop.x + bounds.x / this.lastWidth * crop.width, y: crop.y + bounds.y / this.lastHeight * crop.height, width: bounds.width / this.lastWidth * crop.width, height: bounds.height / this.lastHeight * crop.height } : null, score: result.icon?.score, durationMs, reading, tracking };
         this.publish(this.latest);
         if (tracking?.alert && !this.stopped) this.onAlert();
         if (this.continuous) this.timer = setTimeout(() => this.read(), 1000);
@@ -66,12 +69,13 @@ export class YanusSession {
   private read() {
     if (this.stopped) return;
     try {
-      const frame = this.source.read();
+      const frame = this.source.read(YANUS_SEARCH_REGION);
       if (!frame) { this.timer = setTimeout(() => this.read(), 250); return; }
       const { width, height, data } = frame.image;
       // Explicit bound, rather than quietly downsampling away small UI details.
       if (width * height > 3840 * 2160) { this.fail('현재 자동 탐색은 최대 3840 × 2160 픽셀 수의 입력을 지원합니다. 더 작은 게임 창을 공유해 주세요.'); return; }
       this.lastWidth = width; this.lastHeight = height;
+      this.sourceRegion = frame.sourceRegion ?? YANUS_SEARCH_REGION;
       this.frameTime = frame.timestampMs;
       this.worker!.postMessage({ id: ++this.requestId, width, height, buffer: data.buffer, templateUrl: new URL(`${import.meta.env.BASE_URL}templates/sol-yanus.png`, window.location.href).href }, [data.buffer]);
     } catch (error) { this.fail(error instanceof Error ? error.message : '화면을 읽지 못했습니다.'); }

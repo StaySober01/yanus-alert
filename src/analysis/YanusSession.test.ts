@@ -17,10 +17,23 @@ function setup(continuous = true) {
   const publish = vi.fn(); const session = new YanusSession({ read }, continuous, publish); session.start();
   return { session, publish, read, worker: FakeWorker.current };
 }
+it('maps cropped detections to the original frame even at odd resolutions', () => {
+  const read = vi.fn(() => ({ image: { width: 960, height: 541, data: new Uint8ClampedArray(960 * 541 * 4) } as ImageData, timestampMs: 0, sourceRegion: { x: 959 / 1919, y: 0, width: 960 / 1919, height: 541 / 1081 } }));
+  const publish = vi.fn(); const session = new YanusSession({ read }, false, publish); session.start();
+  expect(FakeWorker.current.postMessage.mock.calls[0][0]).toMatchObject({ width: 960, height: 541 });
+  FakeWorker.current.onmessage!({ data: { id: 1, result: { icon: { bounds: { x: 100, y: 20, width: 29, height: 32 }, score: 1 }, ambiguous: false } } });
+  const region = publish.mock.lastCall![0].region;
+  expect(region.x).toBeCloseTo(1059 / 1919);
+  expect(region.y).toBeCloseTo(20 / 1081);
+  expect(region.width).toBeCloseTo(29 / 1919);
+  expect(region.height).toBeCloseTo(32 / 1081);
+  session.stop();
+});
 it('waits for completion before scheduling another frame', () => {
   const { session, read, worker, publish } = setup(); vi.advanceTimersByTime(10000); expect(read).toHaveBeenCalledTimes(1);
   worker.onmessage!({ data: { id: 1, result: { icon: { bounds: { x: 10, y: 20, width: 29, height: 32 }, score: 0.9 }, ambiguous: false, candidates: 1 }, durationMs: 50 } });
-  expect(publish.mock.lastCall![0]).toMatchObject({ state: 'found', region: { x: 0.1, y: 0.2, width: 0.29, height: 0.32 }, score: 0.9, durationMs: 50 });
+  expect(read).toHaveBeenCalledWith({ x: 0.5, y: 0, width: 0.5, height: 0.5 });
+  expect(publish.mock.lastCall![0]).toMatchObject({ state: 'found', region: { x: 0.55, y: 0.1, width: 0.145, height: 0.16 }, score: 0.9, durationMs: 50 });
   vi.advanceTimersByTime(1000); expect(read).toHaveBeenCalledTimes(2); session.stop();
 });
 it('terminates work and ignores late replies after stop', () => {
